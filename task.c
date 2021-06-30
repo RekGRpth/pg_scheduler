@@ -42,9 +42,9 @@ bool task_done(Task *task) {
         appendStringInfo(&buf, SQL(
             WITH s AS (
                 SELECT id FROM %1$s WHERE id = $1 AND state IN ('TAKE'::%2$s, 'WORK'::%2$s) FOR UPDATE
-            ) UPDATE %1$s AS u SET state = CASE WHEN $2 THEN 'FAIL'::%2$s ELSE 'DONE'::%2$s END, stop = current_timestamp, output = $3, error = $4 FROM s WHERE u.id = s.id
+            ) UPDATE %1$s AS u SET state = CASE WHEN $2 THEN 'FAIL'::%2$s ELSE 'DONE'::%2$s END, stop = current_timestamp, output = concat_ws('%3$s', NULLIF(output, ''), $3), error = concat_ws('%3$s', NULLIF(error, ''), $4) FROM s WHERE u.id = s.id
             RETURNING delete, repeat IS NOT NULL AND state IN ('DONE'::%2$s, 'FAIL'::%2$s) AS repeat, count IS NOT NULL OR live IS NOT NULL AS live
-        ), work->schema_table, work->schema_type);
+        ), work->schema_table, work->schema_type, "\n");
         command = buf.data;
     }
     SPI_connect_my(command);
