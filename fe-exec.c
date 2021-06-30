@@ -19,11 +19,11 @@ const char *PQftypeMy(Oid oid) {
         case OIDVECTOROID: return "oidvector";
         case JSONOID: return "json";
         case XMLOID: return "xml";
-        case PGNODETREEOID: return "pgnodetree";
-        case PGNDISTINCTOID: return "pgndistinct";
-        case PGDEPENDENCIESOID: return "pgdependencies";
-        case PGMCVLISTOID: return "pgmcvlist";
-        case PGDDLCOMMANDOID: return "pgddlcommand";
+        case PG_NODE_TREEOID: return "pg_node_tree";
+        case PG_NDISTINCTOID: return "pg_ndistinct";
+        case PG_DEPENDENCIESOID: return "pg_dependencies";
+        case PG_MCV_LISTOID: return "pg_mcv_list";
+        case PG_DDL_COMMANDOID: return "pg_ddl_command";
         case POINTOID: return "point";
         case LSEGOID: return "lseg";
         case PATHOID: return "path";
@@ -82,7 +82,6 @@ const char *PQftypeMy(Oid oid) {
         case ANYARRAYOID: return "anyarray";
         case VOIDOID: return "void";
         case TRIGGEROID: return "trigger";
-        case EVTTRIGGEROID: return "evttrigger";
         case LANGUAGE_HANDLEROID: return "language_handler";
         case INTERNALOID: return "internal";
         case ANYELEMENTOID: return "anyelement";
