@@ -709,12 +709,13 @@ static void work_update(Work *work) {
         StringInfoData buf;
         initStringInfoMy(TopMemoryContext, &buf);
         appendStringInfo(&buf, SQL(
-            WITH s AS (
+            WITH s AS ( WITH s AS (
                 SELECT id FROM %1$s AS t WHERE dt < current_timestamp - concat_ws(' ', (current_setting('pg_task.reset', false)::int4 * current_setting('pg_task.timeout', false)::int4)::text, 'msec')::interval AND state IN ('TAKE'::%2$s, 'WORK'::%2$s) AND pid NOT IN (
                     SELECT      pid FROM pg_stat_activity
                     WHERE       datname = current_catalog AND usename = current_user AND application_name = concat_ws(' ', 'pg_task', current_setting('pg_task.schema', true), current_setting('pg_task.table', false), t.group)
                     UNION       SELECT UNNEST($1::int4[])
-                ) FOR UPDATE SKIP LOCKED
+                )
+            ) SELECT id FROM s INNER JOIN %1$s USING (id) FOR UPDATE SKIP LOCKED
             ) UPDATE %1$s AS u SET state = 'PLAN'::%2$s FROM s WHERE u.id = s.id RETURNING u.id
         ), work->schema_table, work->schema_type);
         command = buf.data;
