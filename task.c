@@ -82,7 +82,7 @@ bool task_live(Task *task) {
         initStringInfoMy(TopMemoryContext, &buf);
         appendStringInfo(&buf, SQL(
             WITH s AS (
-                SELECT id FROM %1$s AS t WHERE state = 'PLAN'::%2$s AND dt <= current_timestamp AND t.group = $1 AND remote IS NOT DISTINCT FROM $2 AND COALESCE(max, ~(1<<31)) >= $3 AND CASE WHEN count IS NOT NULL AND live IS NOT NULL THEN count > $4 AND $5 + live > current_timestamp ELSE COALESCE(count, 0) > $4 OR $5 + COALESCE(live, '0 sec'::interval) > current_timestamp END
+                SELECT id FROM %1$s AS t WHERE state = 'PLAN'::%2$s AND dt <= current_timestamp AND t.group = $1 AND remote IS NOT DISTINCT FROM $2 AND COALESCE(max, ~(1<<31)) >= $3 AND CASE WHEN count IS NOT NULL AND live IS NOT NULL THEN count > $4 AND $5 + live > current_timestamp ELSE COALESCE(count, 0) > $4 OR $5 + COALESCE(live, '0 sec'::interval) > current_timestamp END AND t.start IS NULL AND t.stop IS NULL AND t.pid IS NULL
                 ORDER BY COALESCE(max, ~(1<<31)) DESC LIMIT 1 FOR UPDATE SKIP LOCKED
             ) UPDATE %1$s AS u SET state = 'TAKE'::%2$s FROM s WHERE u.id = s.id RETURNING u.id
         ), work->schema_table, work->schema_type);

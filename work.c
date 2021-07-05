@@ -741,12 +741,12 @@ static void work_timeout(Work *work) {
             WITH s AS (WITH s AS (WITH s AS (WITH s AS (WITH s AS (
                 SELECT      t.id, t.group, COALESCE(t.max, ~(1<<31)) AS max, a.pid FROM %1$s AS t
                 LEFT JOIN   %1$s AS a ON a.state IN ('TAKE'::%2$s, 'WORK'::%2$s) AND t.group = a.group
-                WHERE       t.state = 'PLAN'::%2$s AND t.dt + concat_ws(' ', (CASE WHEN t.max < 0 THEN -t.max ELSE 0 END)::text, 'msec')::interval <= current_timestamp
+                WHERE       t.state = 'PLAN'::%2$s AND t.dt + concat_ws(' ', (CASE WHEN t.max < 0 THEN -t.max ELSE 0 END)::text, 'msec')::interval <= current_timestamp AND t.start IS NULL AND t.stop IS NULL AND t.pid IS NULL
             ) SELECT id, s.group, CASE WHEN max > 0 THEN max ELSE 1 END - count(pid) AS count FROM s GROUP BY id, s.group, max
             ) SELECT array_agg(id ORDER BY id) AS id, s.group, count FROM s WHERE count > 0 GROUP BY s.group, count
             ) SELECT unnest(id[:count]) AS id, s.group, count FROM s ORDER BY count DESC
             ) SELECT id FROM s INNER JOIN %1$s USING (id) FOR UPDATE SKIP LOCKED
-            ) UPDATE %1$s AS u SET state = 'TAKE'::%2$s FROM s WHERE u.id = s.id RETURNING u.id, u.group, u.remote, COALESCE(u.max, ~(1<<31)) AS max, start IS NULL AS start_isnull, stop IS NULL AS stop_isnull, pid IS NULL AS pid_isnull
+            ) UPDATE %1$s AS u SET state = 'TAKE'::%2$s FROM s WHERE u.id = s.id RETURNING u.id, u.group, u.remote, COALESCE(u.max, ~(1<<31)) AS max
         ), work->schema_table, work->schema_type);
         command = buf.data;
     }
@@ -755,18 +755,12 @@ static void work_timeout(Work *work) {
     SPI_execute_plan_my(plan, NULL, NULL, SPI_OK_UPDATE_RETURNING, true);
     for (uint64 row = 0; row < SPI_tuptable->numvals; row++) {
         Task *task = MemoryContextAllocZero(TopMemoryContext, sizeof(*task));
-        bool pid_isnull = DatumGetBool(SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "pid_isnull", false));
-        bool start_isnull = DatumGetBool(SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "start_isnull", false));
-        bool stop_isnull = DatumGetBool(SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "stop_isnull", false));
         task->group = TextDatumGetCStringMy(TopMemoryContext, SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "group", false));
         task->id = DatumGetInt64(SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "id", false));
         task->max = DatumGetInt32(SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "max", false));
         task->remote = TextDatumGetCStringMy(TopMemoryContext, SPI_getbinval_my(SPI_tuptable->vals[row], SPI_tuptable->tupdesc, "remote", true));
         task->work = work;
-        D1("row = %lu, id = %li, group = %s, remote = %s, max = %i, start_isnull = %s, stop_isnull = %s, pid_isnull = %s", row, task->id, task->group, task->remote ? task->remote : default_null, task->max, start_isnull ? "true" : "false", stop_isnull ? "true" : "false", pid_isnull ? "true" : "false");
-        if (!start_isnull) { work_error(task, "!start_isnull", NULL, false); continue; }
-        if (!stop_isnull) { work_error(task, "!stop_isnull", NULL, false); continue; }
-        if (!pid_isnull) { work_error(task, "!pid_isnull", NULL, false); continue; }
+        D1("row = %lu, id = %li, group = %s, remote = %s, max = %i", row, task->id, task->group, task->remote ? task->remote : default_null, task->max);
         task->remote ? work_remote(task) : work_task(task);
     }
     if (work->conf.count) work->count += SPI_tuptable->numvals;
